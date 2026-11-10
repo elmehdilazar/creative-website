@@ -1,0 +1,6 @@
+{
+  "name": "Lucent",
+  "description": "A new class of daily silicone hydrogel lenses engineered for exceptional oxygen flow, moisture retention, and zero-gravity comfort all day long.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

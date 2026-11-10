@@ -1,0 +1,43 @@
+.main {
+  position: relative;
+  width: 100%;
+  background-color: var(--bg);
+}
+
+.scene {
+  position: relative;
+  height: 400svh;
+  width: 100%;
+}
+
+.pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wash {
+  position: absolute;
+  inset: 0;
+  background-color: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  will-change: transform;
+}

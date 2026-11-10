@@ -1,0 +1,203 @@
+.features {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  pointer-events: auto;
+}
+
+/* Heading */
+.heading {
+  position: absolute;
+  top: calc(144 * var(--u));
+  left: var(--page-edge);
+  font-size: calc(72 * var(--u));
+  line-height: 0.9;
+  font-weight: 400;
+  font-stretch: var(--font-stretch-display);
+  white-space: nowrap;
+}
+
+.headingLine1 {
+  display: block;
+  color: var(--ink);
+}
+
+.headingLine2 {
+  display: block;
+  color: var(--blue);
+}
+
+/* Lead */
+.lead {
+  position: absolute;
+  top: calc(144 * var(--u));
+  right: calc(41 * var(--u));
+  width: calc(324 * var(--u));
+  font-size: calc(18 * var(--u));
+  line-height: calc(21 * var(--u));
+  color: var(--ink);
+}
+
+.desktopBr {
+  display: inline;
+}
+
+/* Cards Row */
+.cardsRow {
+  position: absolute;
+  left: var(--page-edge);
+  right: calc(41 * var(--u));
+  bottom: calc(50 * var(--u));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+/* Individual Card */
+.card {
+  flex: 0 0 calc(325 * var(--u));
+  padding: calc(28 * var(--u));
+  border-radius: var(--radius-feature-card);
+  background-color: var(--white);
+  outline: none;
+  cursor: pointer;
+  transition:
+    background-color var(--trans-card),
+    color var(--trans-card),
+    box-shadow var(--trans-card);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.cardTitle {
+  font-size: calc(24 * var(--u));
+  line-height: calc(29 * var(--u));
+  font-weight: 500;
+  color: var(--blue);
+  transition: color var(--trans-card);
+}
+
+.cardNumber {
+  font-size: calc(18 * var(--u));
+  line-height: calc(21 * var(--u));
+  font-weight: 400;
+  color: var(--number);
+  transition: color var(--trans-card);
+}
+
+.cardCopy {
+  margin-top: calc(20 * var(--u));
+  font-size: calc(18 * var(--u));
+  line-height: calc(21 * var(--u));
+  color: var(--ink);
+  transition: color var(--trans-card);
+}
+
+.arrowRow {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--trans-card);
+}
+
+.arrowRowInner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.arrowLg {
+  width: calc(20 * var(--u));
+  height: calc(20 * var(--u));
+  margin-top: calc(20 * var(--u));
+  flex-shrink: 0;
+}
+
+/* Active card state */
+.card[data-active="true"] {
+  background-color: var(--blue);
+  box-shadow: 0 8px 32px rgba(97, 166, 246, 0.3);
+}
+
+.card[data-active="true"] .cardTitle {
+  color: var(--white);
+}
+
+.card[data-active="true"] .cardNumber {
+  color: var(--white);
+}
+
+.card[data-active="true"] .cardCopy {
+  color: var(--white);
+}
+
+.card[data-active="true"] .arrowRow {
+  grid-template-rows: 1fr;
+}
+
+@media (max-width: 1023px) {
+  .heading {
+    top: calc(96 * var(--u));
+    font-size: calc(40 * var(--u));
+    line-height: 0.9;
+  }
+
+  .lead {
+    top: calc(196 * var(--u));
+    left: var(--page-edge);
+    right: var(--page-edge);
+    width: auto;
+    font-size: calc(16 * var(--u));
+    line-height: calc(19 * var(--u));
+  }
+
+  .desktopBr {
+    display: none;
+  }
+
+  .cardsRow {
+    left: 0;
+    right: 0;
+    bottom: calc(24 * var(--u));
+    padding: 0 var(--page-edge);
+    gap: calc(12 * var(--u));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 var(--page-edge);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    justify-content: flex-start;
+  }
+
+  .cardsRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card {
+    flex: 0 0 calc(280 * var(--u));
+    padding: calc(24 * var(--u));
+    scroll-snap-align: start;
+  }
+
+  .cardTitle {
+    font-size: calc(20 * var(--u));
+    line-height: calc(24 * var(--u));
+  }
+
+  .cardNumber {
+    font-size: calc(16 * var(--u));
+    line-height: calc(19 * var(--u));
+  }
+
+  .cardCopy {
+    margin-top: calc(16 * var(--u));
+    font-size: calc(16 * var(--u));
+    line-height: calc(19 * var(--u));
+  }
+}

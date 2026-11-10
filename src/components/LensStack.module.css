@@ -1,0 +1,49 @@
+.lensBox {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0; /* Animated by M2 */
+  --spread: 0;
+}
+
+.layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: calc(-50% + var(--i) * var(--lens-step) * var(--spread, 0)) -50%;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lensImg {
+  height: var(--lens-h);
+  width: auto;
+  max-width: none;
+  display: block;
+}
+
+.glowDot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  border-radius: 50%;
+  background: var(--glow-core);
+  box-shadow:
+    0 0 calc(6 * var(--u)) calc(2 * var(--u)) var(--blue),
+    0 0 calc(34 * var(--u)) calc(10 * var(--u)) rgba(97, 166, 246, 0.35);
+  opacity: 0;
+  transition: opacity var(--trans-card);
+  pointer-events: none;
+}
+
+.glowDotActive {
+  opacity: 1;
+}

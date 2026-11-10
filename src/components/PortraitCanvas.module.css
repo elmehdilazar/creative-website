@@ -1,0 +1,17 @@
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0; /* Animated by M1 */
+  pointer-events: none;
+  display: block;
+}
+
+.probe {
+  position: absolute;
+  width: calc(100 * var(--u));
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}

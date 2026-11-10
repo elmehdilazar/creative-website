@@ -1,0 +1,11 @@
+.line {
+  display: block;
+  white-space: nowrap;
+}
+
+.char {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}

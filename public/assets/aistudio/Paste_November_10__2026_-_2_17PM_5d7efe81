@@ -1,0 +1,462 @@
+# lucent — build prompt
+<!--⁠‌‌​‌​‌​‌‌‌​‌​‌‌​‌​‌‌‌​‌​​​​‌​‌‌‌​​​‌​​‌‌​​​‌​‌‌‌⁠ uberdesigner prompt format v1 · lucent · v1.0.0 -->
+
+## Goal
+You're building a two-screen, scroll-driven website for a fictional contact lens brand called "Lucent". It opens on a
+full-screen portrait of a woman that sharpens out of a heavy blur while the navigation, headline (letter by letter) and
+copy rise into place. Scrolling then plays one pinned scene: the camera zooms into her eye, a glowing cyan scanner
+draws itself over the iris, the hero copy scrolls away as the features copy scrolls in, the eye washes out to the page
+colour, a single lens settles in and then splits sideways into its four layers. Hovering one of the four feature cards
+turns it blue and lights a glowing dot on its layer. All of the motion is built in code from still images, with no
+video: the zoom redraws one 4K portrait on a canvas, the scanner is an SVG, and the lens is four transparent images.
+Match everything below exactly: layout, type, colours, images and motion. Keep the copy and images as given; the user
+swaps in their own content afterwards.
+
+## Stack and setup
+- Vite + React 19 + TypeScript. Plain CSS: one global tokens file plus CSS Modules per component. No CSS framework.
+- Libraries: `gsap` 3.15 with its `ScrollTrigger` plugin (`import { ScrollTrigger } from "gsap/ScrollTrigger"`,
+  `gsap.registerPlugin(ScrollTrigger)`). Nothing else.
+- Create and run:
+  ```bash
+  npm create vite@latest lucent -- --template react-ts --no-interactive
+  cd lucent
+  npm install gsap
+  npm run dev
+  ```
+- Folder layout:
+  ```
+  index.html                          font, title, empty favicon, portrait preload
+  src/main.tsx                        renders <App /> and <Cursor />
+  src/App.tsx                         page structure, intro timeline, scroll timeline (+ App.module.css)
+  src/styles/tokens.css               all design tokens as CSS variables
+  src/styles/global.css               reset and base styles
+  src/components/Header.tsx           fixed header (+ Header.module.css)
+  src/components/Hero.tsx             first screen's copy, callout card, buttons (+ Hero.module.css)
+  src/components/Chars.tsx            a headline line split into one span per character (+ Chars.module.css)
+  src/components/Features.tsx         second screen's copy and the four cards (+ Features.module.css)
+  src/components/PortraitCanvas.tsx   the portrait canvas and the zoom (+ PortraitCanvas.module.css)
+  src/components/Hud.tsx              the eye scanner, one SVG (+ Hud.module.css)
+  src/components/LensStack.tsx        the four lens layers and their glow dots (+ LensStack.module.css)
+  src/components/Cursor.tsx           custom cursor (+ Cursor.module.css)
+  ```
+- Delete the scaffold's leftovers that aren't in this layout (`App.css`, `index.css`, `src/assets/`, the sample icons
+  in `public/`). Make sure TypeScript runs with `"strict": true` (add it to the scaffold's tsconfig if it isn't there).
+- `global.css` sets `box-sizing: border-box` on everything (`*, *::before, *::after`), with margins and paddings at 0:
+  every size below includes padding and borders.
+- Page title: "Lucent — See everything. Feel nothing."; meta description: "A new class of daily silicone hydrogel lenses
+  engineered for exceptional oxygen flow, moisture retention, and zero-gravity comfort all day long."
+- `index.html` gets `<link rel="icon" href="data:,">` (no favicon 404) and
+  `<link rel="preload" as="fetch" href="<portrait URL>" crossorigin>`: the portrait is loaded with `fetch()`, so an
+  `as="image"` preload wouldn't be reused.
+- Keep `<StrictMode>` in `main.tsx`. Every effect cleans up after itself (ignore a stale load, revert GSAP with
+  `gsap.context().revert()`, which also kills the ScrollTrigger, cancel animation frames, disconnect observers),
+  because StrictMode runs effects twice in development. Don't return a function from the `gsap.context()` callback:
+  GSAP calls it on revert.
+- State: `App` owns the timelines. It loads the portrait into an `ImageBitmap` and passes it to `PortraitCanvas`
+  together with a mutable ref `{ zoom: 0, extra: 0 }` that the scroll timeline tweens and the canvas reads every
+  frame. `App` also owns `active: number | null` (the active feature card) and passes it to `Features` and
+  `LensStack`.
+- `App` reaches the elements it animates through data attributes and `gsap.utils.selector(rootRef.current)`, since
+  CSS Modules hash the class names: `data-reveal` = `header`, `label`, `headline`, `body`, `buttons`, `scroll`,
+  `callout`; `data-scene` = `scene`, `portrait` (the canvas), `wash`, `hud` (the svg), `hud-ring`, `hud-scan`,
+  `hud-mesh`, `lens`, `track`; `data-line` on each headline line, `data-char` on each character, `data-draw` on each
+  scanner stroke.
+- Visual values live in `tokens.css`: colours, type, the shared spacing and radii below. Positions and sizes that
+  belong to one block go in its CSS Module as `calc(N * var(--u))`. Motion numbers (times, eases, the iris position)
+  live as named constants at the top of the component that uses them.
+- Never centre an element that GSAP animates with its own CSS `translate`: GSAP 3 folds that `translate` into its own
+  pixel transform when it first animates the element, and the centring then goes stale when the window resizes. The
+  scanner is centred by a wrapper `div` and GSAP animates the `svg` inside it. Elements GSAP doesn't touch (the lens
+  layers, the glow dots) can use `translate`.
+- Give every `<img>` its file's `width` and `height` attributes (from the asset table), so its box has the right
+  shape before the file arrives.
+
+## Design tokens
+**Scale.** All sizes below are design pixels. Desktop (width ≥ 1024 px) is designed at 1440 × 900:
+1 design px = `min(100vw / 1440, 100svh / 760)`. Phones and tablets (width < 1024 px) use a layout designed 415 design
+px across: 1 design px = `min(100vw / 415, 100svh / 760)` (so on a short phone the layout is a little wider than 415
+design px, and on a tablet much wider; the edges and anchors below keep it in place). So the design scales with the viewport width, and shrinks to fit on
+screens shorter than 760 design px. Put this in a `--u` variable on `:root`, swap it in a `max-width: 1023px` media
+query, and write every size as `calc(N * var(--u))`. The canvas needs the same unit in JS: measure a hidden probe
+`div` that is `calc(100 * var(--u))` wide and divide by 100. Borders (1 px) and the blur radii in Motion are CSS
+pixels, not design pixels.
+
+**Colors**
+| Name | Hex | Role |
+|---|---|---|
+| bg | `#FAFAFA` | page background, the wash over the eye |
+| ink | `#1F2022` | text |
+| muted | `#A4A4A4` | eyebrow label, "All-Day Comfort", outline button edge, scroll arrow |
+| number | `#B2B2B2` | feature card numbers |
+| blue | `#61A6F6` | buttons, second headline lines, active card, active pager dot, glow ring |
+| white | `#FFFFFF` | cards, scroll circle, button text, scanner circles and scan lines |
+| line | `#D9D9D9` | header divider, pager dots |
+| hud | `#D8FDFF` | scanner arcs and line |
+| hud glow | `#5FD3FF` | scanner bloom |
+| glow core | `#D9FFFF` | layer glow dot |
+| cursor fill | `rgba(140,140,140,0.6)` | cursor disc |
+| cursor edge | `rgba(255,255,255,0.7)` | cursor's 1 px inner ring |
+
+The logo SVG carries its own colours (`#1F2022` and a `#7DB6F8` ring inside the C).
+
+**Typography.** One family, Instrument Sans from Google Fonts (SIL Open Font License), loaded with its width axis:
+`https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap`
+(specimen: https://fonts.google.com/specimen/Instrument+Sans).
+It stands in for SF Pro Display and is narrowed on its width axis to SF Pro's widths: `font-stretch: 91%` for all
+text (set it on `body`) and `font-stretch: 90%` for the two display headings. Those exact values make every
+paragraph break onto the same lines as the design, so don't round them.
+
+| Style | Desktop size / line box | Phone size / line box | Weight | Notes |
+|---|---|---|---|---|
+| Display (both headings) | 72 / `line-height: 0.9` | 40 / 0.9 | 400 | stretch 90%, `white-space: nowrap`, two lines |
+| Text (everything else) | 18 / 21 | 16 / 19 | 400 | |
+| Nav links | 16 / 19 | — (hidden) | 400 | |
+| Card title | 24 / 29 | 20 / 24 | 500 | |
+| Small (eyebrow on phones, "More") | 14 | 14 / 17 | 400 | "More": `line-height: 1` |
+
+Casing as typed. No letter-spacing anywhere. The line boxes above are SF Pro Display's, so with them Instrument Sans
+sits on the design's baselines: every position below is the top of a text element's line box, as in Figma. Don't use
+`text-box-trim` here.
+
+**Spacing and shape**
+- Page edge: 40 desktop, 20 phone. Header height: 80 desktop, 64 phone.
+- Radii: pills `99px` (a literal, fully round); callout card 40; card image 20; feature cards 28 (phone 24); pager
+  dots 4.
+- Lens layers: displayed 480 tall (phone 280), spread step 170 (phone 78).
+- Hover: 200 ms, `cubic-bezier(0.22, 1, 0.36, 1)`. Feature cards: 300 ms, same curve.
+
+Set all of these up first as CSS variables in `tokens.css`, and take every colour, type style and shared value from
+them.
+
+## Assets
+| Asset | URL | Used in |
+|---|---|---|
+| Portrait (4096 × 2286) | https://assets.uberdesigner.ai/lucent/portrait.webp | PortraitCanvas |
+| Eye close-up (940 × 788) | https://assets.uberdesigner.ai/lucent/eye-card.webp | Hero, callout card |
+| Lens layer 1, textured (631 × 1100, transparent) | https://assets.uberdesigner.ai/lucent/lens-1.webp | LensStack |
+| Lens layer 2, blue (587 × 1100, transparent) | https://assets.uberdesigner.ai/lucent/lens-2.webp | LensStack |
+| Lens layer 3, clear (581 × 1100, transparent) | https://assets.uberdesigner.ai/lucent/lens-3.webp | LensStack |
+| Lens layer 4, rim (569 × 1100, transparent) | https://assets.uberdesigner.ai/lucent/lens-4.webp | LensStack |
+| Lucent logo (108.867 × 20.0006) | https://assets.uberdesigner.ai/lucent/logo.svg | Header |
+| Small arrow ↗ (10.8536 × 10.8536, white stroke) | https://assets.uberdesigner.ai/lucent/arrow-sm.svg | "More" button |
+| Large arrow ↗ (20.8536 × 20.8536, white stroke) | https://assets.uberdesigner.ai/lucent/arrow-lg.svg | Active feature card |
+
+Use these URLs as they are; don't substitute or regenerate them. The server sends CORS headers, so the portrait can
+be fetched and drawn to a canvas from any origin. The four lens files are the same height and each lens is centred in
+its own file, so stacking them on one centre point makes one lens.
+
+## Layout — section by section
+### 0. Page structure
+```
+<main>
+  <Header/>                              position: fixed, above everything
+  <div class="scene">                    height: 400svh (the scroll scene)
+    <div class="pin">                    position: sticky; top: 0; height: 100svh; overflow: hidden
+      <div class="stage">                position: absolute; inset: 0; pointer-events: none
+        PortraitCanvas  (canvas, inset 0, starts at opacity 0)
+        wash            (div, inset 0, background bg, opacity 0)
+        Hud             (a centred wrapper div with the scanner svg inside)
+        LensStack       (centred, opacity 0)
+      <div class="track">                position: absolute; top 0; left 0; right 0; slides up by one screen
+        Hero            (section, height 100svh)
+        Features        (section, height 100svh)
+```
+Nothing may set `overflow` on `html`, `body` or any ancestor of `.pin`, or sticky stops working. The page has no
+other content: when the scene ends, the page ends.
+
+### 1. Header (fixed, both screens)
+- Desktop: `position: fixed; top 0; left 0; right 0; height 80; padding: 0 40`, `display: flex; align-items: center;
+  justify-content: space-between`, `border-bottom: 1px solid line`, no background (the eye and the lens show
+  through).
+- Left: the logo, 108.867 × 20.0006, linking to `#` with `aria-label="Lucent"`.
+- Centre: five links, gap 32, nav style: Technology, Benefits, Materials, Science, Support. The logo and the button
+  differ in width, so the links sit a few pixels off centre. That's the design.
+- Right: "Find a Store", a pill 45 high, padding 0 20, blue, white text-style label.
+- States: links go to opacity 0.6 on hover; "Find a Store" scales to 1.03 on hover (200 ms, the hover curve).
+- Phone: height 64, padding 0 20, links hidden, button 40 high, padding 0 16, label 16 / 19.
+- All links go to `#`.
+
+### 2. Hero (first screen of the track)
+All positions are measured in the 1440 × 900 screen. Blocks on the left keep their distance from the left, blocks on
+the right from the right, top blocks from the top and bottom blocks from the bottom.
+- **Top block** at left 40, top 144: a column, gap 16:
+  - eyebrow "Next-Generation Contact Lenses", text style, muted (line box 144 → 165);
+  - `<h1>` with `aria-label="See everything. Feel nothing."`, display style, ink, its box at top 181 (two lines of
+    64.8 = 129.6 tall, about 458 wide): line 1 "See everything.", line 2 "Feel nothing." in blue. Each line is a
+    `display: block; white-space: nowrap` span with `aria-hidden="true"`; each character is its own
+    `display: inline-block; white-space: pre` span, for the reveal.
+- **Callout** at right 40, top 144: a row, `align-items: center`, gap 12: the card, then the pager.
+  - Card: 280 × 226, padding 20, radius 40, white, a column `justify-content: center`, gap 20:
+    - a row, `align-items: flex-end`, gap 4: on the left (`flex: 1`) a column, gap 4, text style: "16 hours" (ink) and
+      "All-Day Comfort" (muted); on the right a "More" link: a pill 48 high, padding 0 16, gap 8, blue, "More" in
+      white at 14 with `line-height: 1`, then the small arrow at 10.8536 × 10.8536;
+    - the eye close-up, full width × 118, radius 20, `object-fit: cover`, alt "Close-up of a blue eye".
+  - Pager: a column, gap 4, of four dots 8 × 8, radius 4: the first is 8 × 16 and blue, the other three line grey.
+    It's static (the first dot is always the active one).
+  - "More" scales to 1.03 on hover.
+- **Bottom block** at left 40, bottom 40, width 431: a column, gap 28:
+  - text style, ink: "A new class of daily silicone hydrogel lenses engineered for exceptional oxygen flow, moisture
+    retention, and zero-gravity comfort all day long." It breaks after "engineered" and after "zero-" (three lines);
+  - a row, gap 12, of two pill buttons 53 high, text style: "Explore Technology" (padding 0 20, blue, white text) and
+    "Learn More" (padding 0 24, ink text, a 1 px muted border drawn inside the box: `box-shadow: inset 0 0 0 1px
+    muted`, so it doesn't add to the size). Both scale to 1.03 on hover.
+- **Scroll hint** at right 40, bottom 40: a row, gap 12, `align-items: center`: "Scroll down" (text style, ink), then a
+  40 × 40 white circle with a centred "↓" in muted at 18. Instrument Sans has no arrows, so this one glyph comes
+  from the system font; that's expected.
+- Phone: the top block sits at top 96 with left and right 20, still with gap 16; the eyebrow is 14 / 17; the headline
+  is 40 (each line fits on one line). The callout and the scroll hint are hidden. The bottom block spans left and right 20 at bottom 24,
+  gap 20, text 16 / 19, buttons 47 high with padding 0 18 and 0 22, still 12 apart.
+
+### 3. Portrait (stage, behind the copy)
+- One `<canvas>` covering the pin (`position: absolute; inset: 0; width: 100%; height: 100%`), backing store at
+  `min(devicePixelRatio, 2)`. It draws the portrait cover-fitted to the screen: scale = `max(W / 4096, H / 2286)`,
+  centred horizontally; if the screen is wider than the image's ratio, the leftover height is cropped 25% from the top
+  and 75% from the bottom (`top = (H − 2286 × scale) × 0.25`), so the head stays in on wide screens. At 1440 × 900
+  that's a 1612 × 900 image, centred, her eyes at y ≈ 358.
+- It starts at opacity 0 (CSS); the intro reveals it. Motion → M3 zooms it.
+- The portrait has no fade at the top: it runs behind the header and its divider.
+
+### 4. Scanner (stage, centred on the screen)
+A wrapper `div` centred on the pin (`position: absolute; left: 50%; top: 50%; translate: -50% -50%`), 640 × 640
+design px (on phones 640 × 150 / 210 ≈ 457 × 457, since the phone iris is 150 instead of 210), `pointer-events: none`,
+`mix-blend-mode: screen` (on the wrapper: it's what composites over the canvas). Inside it one
+`<svg viewBox="-320 -320 640 640">` at `width: 100%; height: 100%; display: block; overflow: visible`, opacity 0
+(CSS); this svg is what GSAP fades and scales. Units inside are design px around the screen centre, where the iris
+ends up (iris radius 210). Its parts, bottom to top:
+- **Scan lines:** a group, opacity 0 (CSS), of horizontal white lines, 1 wide, `stroke-opacity: 0.25`, at
+  y = −201, −193, … 199 (every 8), each from x −205 to 205, clipped to a circle of radius 205 (`clipPath`).
+- **Mesh:** a group, white, `stroke-width: 0.75`, `stroke-opacity: 0.7`, no fill, opacity 0 (CSS): circles of
+  radius 150 and 190; 24 spokes (every 15°, starting at 3 o'clock) from radius 105 to 190; a white dot of radius 1.6
+  wherever a spoke meets one of the two circles.
+- **Strokes:** a group with `fill: none; stroke: hud; stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1` and the bloom filter below. Every stroke inside has `pathLength="1"` (so
+  dash offset 1 hides it and 0 shows all of it) and is drawn in by M4:
+  - the outer ring, radius 265, as three arcs in their own group (it turns in M4). Angles in degrees, clockwise from
+    3 o'clock with y pointing down: 121 → 257, 270 → 338, 27 → 60;
+  - a horizontal line drawn from the centre outwards as two paths: `M 0 0 H -300` and `M 0 0 H 305`;
+  - two circles around the pupil, white, `stroke-width: 1.5`, each a path of two half arcs drawn clockwise: radius 80
+    starting at the top, radius 105 starting at the bottom (see `circle()` below).
+  Draw every stroke as a `<path>`: `pathLength` on `<line>` and `<circle>` isn't reliable in every browser.
+- **Bloom filter** (`x="-20%" y="-20%" width="140%" height="140%"`): flood hud glow at full opacity, composited `in`
+  a 2.5 blur of `SourceAlpha` and again `in` an 8 blur of `SourceAlpha`; merge wide glow, tight glow, `SourceGraphic`.
+  Set the flood colour with `style={{ floodColor: "var(--hud-glow)" }}`: a CSS variable doesn't work as an SVG
+  attribute.
+
+```ts
+const point = (deg: number, r: number) => {
+  const a = (deg * Math.PI) / 180;
+  return `${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`;
+};
+const arc = ([from, to]: [number, number]) =>
+  `M ${point(from, 265)} A 265 265 0 ${to - from > 180 ? 1 : 0} 1 ${point(to, 265)}`;
+const circle = (r: number, from: number) => // from −90 = the top, 90 = the bottom
+  `M ${point(from, r)} A ${r} ${r} 0 1 1 ${point(from + 180, r)} A ${r} ${r} 0 1 1 ${point(from, r)}`;
+```
+
+### 5. Features (second screen of the track)
+- **Heading** at left 40, top 144, display style, an `<h2>` with two block lines: "Four Layers." (ink) and "One
+  Invisible Feeling." (blue). Box about 621 wide (618 with the design's font), 129.6 tall. No per-character split
+  here.
+- **Lead** at right 41, top 144, width 324, text style, ink: "Every single layer of Lucent contact lenses is
+  individually designed to function seamlessly in harmony with your eye's natural anatomy." (four lines, breaking
+  after "lenses", "function" and "eye's").
+- **Cards:** a row at left 40, right 41, bottom 50: `display: flex; align-items: flex-end;
+  justify-content: space-between`. Four `<article tabIndex={0}>` cards, each `flex: 0 0 325`, padding 28, radius 28,
+  white. Inside, top to bottom:
+  - a head row, `justify-content: space-between; align-items: center; white-space: nowrap`: the title (`<h3>`, card
+    title style, blue) and the number "01"–"04" (text style, number grey);
+  - the copy, text style, ink, 20 below the head;
+  - an arrow row that is closed (`display: grid; grid-template-rows: 0fr`, its child `min-height: 0;
+    overflow: hidden; display: flex; justify-content: flex-end`) holding the large arrow at 20 × 20 (the design's box;
+    the file is 20.85 because of the stroke's overhang) with `margin-top: 20`.
+  The cards are bottom-aligned, so they differ in height with their copy (189, 189, 168, 189 at 1440).
+  | # | Title | Copy (line breaks as in the design) |
+  |---|---|---|
+  | 01 | Oxygen Flow | Micro-channels optimized to / maximize oxygen permeability for / healthier, whiter eyes throughout / the day. |
+  | 02 | UV Shield | Integrated protective layering / blocks harmful ultraviolet rays / without affecting natural color / perception. |
+  | 03 | Moisture Matrix | A moisture-retaining polymer layer / that prevents dry-eye fatigue from / morning until late at night. |
+  | 04 | Precision Optics | An ultra-thin, smooth surface / engineered to direct light precisely / into the pupil with minimal / aberration. |
+  (The slashes only show where the lines break: write each copy as one sentence.)
+- **Active card** (`data-active="true"`): background blue; title, number and copy white; the arrow row opens
+  (`grid-template-rows: 1fr`), so the card grows 40 upwards (229 tall). Background, colours and the row animate over
+  300 ms with the hover curve.
+  A card becomes active on `pointerenter` and inactive on `pointerleave`, both only for a mouse
+  (`e.pointerType === "mouse"`; on touch, `pointerleave` fires right after a tap). `focus` makes it active and `blur`
+  clears it, which covers keyboard users and taps on touch screens. Only one
+  card is active at a time; none is active at first. Give cards `outline: none` (the active state is the focus
+  indicator).
+- Phone: heading at top 96, 40 / 0.9; lead at top 196 with left and right 20, 16 / 19. The cards become one row that
+  swipes sideways at bottom 24: `left: 0; right: 0; padding: 0 20; gap: 12; overflow-x: auto;
+  scroll-snap-type: x mandatory; scroll-padding: 0 20`, scrollbar hidden; each card 280 wide
+  (`flex-basis`), padding 24, `scroll-snap-align: start`, title 20 / 24, copy 16 / 19 with 16 above it. The active
+  card grows the same 40 design px.
+
+### 6. Lens layers (stage, centred)
+- A zero-size box at `left: 50%; top: 50%` holding four layers, each `position: absolute; left 0; top 0` with
+  `translate: calc(-50% + var(--i) * var(--lens-step) * var(--spread)) -50%`, where `--i` is −1.5, −0.5, 0.5, 1.5
+  for layers 1–4 (set inline) and `--spread` is a custom property on the box, 0 by default. Layers 1–4 in DOM order.
+- Each layer is the lens image at `height: var(--lens-h); width: auto` plus a glow dot centred on it.
+- With `--spread: 0` the four layers sit on one point and read as one lens; at 1 their centres are at −255, −85, 85
+  and 255 (at 1440).
+- **Glow dot:** 28 × 28, centred (`translate: -50% -50%`), round, background glow core, two shadows in design px:
+  `0 0 6 2` blue and `0 0 34 10 rgba(97,166,246,0.35)` (e.g. `0 0 calc(6 * var(--u)) calc(2 * var(--u)) var(--blue)`),
+  opacity 0; it fades to 1 when its card is active (300 ms, the hover curve).
+- The box starts at opacity 0 (CSS). Motion → M5.
+
+### 7. Cursor
+- On devices with a mouse (`(hover: hover) and (pointer: fine)`): hide the system cursor (`cursor: none` on body,
+  links, buttons and `[tabindex]`). Show a fixed 40 × 40 design-px disc instead, background cursor fill,
+  `box-shadow: inset 0 0 0 1px` cursor edge, `pointer-events: none`, on top of everything (z-index above the header).
+  `z-index: 20` (the header is 10). It starts at the centre of the window, hidden; it shows on the first mouse move
+  (and glides from the centre to the pointer) and hides when the mouse leaves the window (`mouseout` with no
+  `relatedTarget`), opacity 200 ms, linear.
+- On touch devices: no custom cursor.
+
+## Motion
+### M1 · Intro
+t = 0 is the moment the portrait is loaded and decoded (`fetch` → `blob()` → `createImageBitmap`) and both font
+faces have loaded: wait for `document.fonts.load('400 1em "Instrument Sans"')` and
+`document.fonts.load('500 1em "Instrument Sans"')`, not `document.fonts.ready`, which can resolve before the fonts
+have started loading. Until then the page is just the page colour (the portrait is about 340 KB). If the portrait
+fails, log the error and still play everything without it.
+Everything the intro reveals starts at opacity 0 in CSS, so write each row as a `fromTo` with explicit end values
+(`opacity: 1, y: 0, filter: "blur(0px)"`); a `from` would tween 0 to 0. Times in seconds, all `power2.out`:
+| At | What | From → to | Duration |
+|---|---|---|---|
+| 0 | portrait canvas | opacity 0, `blur(40px)` → 1, `blur(0)` | 0.6 |
+| 0.1 | the whole header (its divider rises with it) | opacity 0, y +24, `blur(8px)` → 1, 0, 0 | 0.45 |
+| 0.1 | eyebrow | opacity 0, y +20, `blur(8px)` → normal | 0.45 |
+| 0.35 | bottom paragraph | opacity 0, y +30, `blur(8px)` → normal | 0.5 |
+| 0.35 | headline line 1, per character | opacity 0, `yPercent: 35`, `blur(12px)` → normal, stagger 0.02 | 0.4 each |
+| 0.47 | headline line 2, per character | same, its own stagger of 0.02 | 0.4 each |
+| 0.55 | button row | opacity 0, y +20, `blur(8px)` → normal | 0.5 |
+| 0.6 | scroll hint | same | 0.5 |
+| 0.95 | callout (card + pager) | opacity 0, y +16, `blur(10px)` → normal | 0.4 |
+- Set the `<h1>` to opacity 1 at 0.35 (its characters carry the fade).
+- Every intro tween ends with `clearProps: "filter,transform"` (the canvas: `"filter"`), so no element keeps a
+  `filter` or a transform around.
+- It plays once and isn't interrupted. Scrolling during it is fine: the scroll timeline touches other properties.
+
+### M2 · Scroll scene
+One GSAP timeline, `defaults: { ease: "none" }`, driven by ScrollTrigger on `.scene` with `start: "top top"`,
+`end: "bottom bottom"`, `scrub: 1` (it catches up with the scroll over 1 s, which gives the smooth glide). The
+timeline is 3 units long (end it with `tl.set({}, {}, 3)`), so each unit is one screen of scrolling.
+| Units | What | From → to | Ease |
+|---|---|---|---|
+| 0 → 1 | portrait `zoom` (M3) | 0 → 1 | `power1.inOut` |
+| 0.65 → 1.05 | scanner svg | opacity 0, scale 0.9 → 1, 1 | `power2.out` |
+| 0.65 → 1.05 | every scanner stroke | `strokeDashoffset` 1 → 0 | `power2.out` |
+| 0.65 → 1.7 | the ring's group | `rotation` −20 → 25, `svgOrigin: "0 0"` | none |
+| 0.75 → 1.05 | scan lines group | opacity 0 → 1 | none |
+| 0.95 → 1.2 | mesh group | opacity 0, scale 0.92 → 1, 1 (`svgOrigin: "0 0"`) | `power2.out` |
+| 1.0 → 1.7 | track | `yPercent` 0 → −50 (up one screen) | `power1.inOut` |
+| 1.4 → 1.75 | portrait `extra` (M3) | 0 → 1 | `power1.in` |
+| 1.4 → 1.75 | wash | opacity 0 → 1 | `power1.inOut` |
+| 1.4 → 1.7 | scanner svg | opacity → 0, scale → 1.3 | `power1.in` |
+| 1.5 → 1.9 | lens box | opacity 0 → 1, scale 1.6 → 1, blur 16 px → 0 | `power2.out` |
+| 2.2 → 2.8 | lens box | `--spread` 0 → 1 (GSAP tweens custom properties) | `power2.inOut` |
+| 2.8 → 3.0 | hold | | |
+- When a later row animates an element that an earlier row started (the scanner svg fading out at 1.4), use `.to()`:
+  a second `fromTo` would render its start values immediately and overwrite the first.
+- The lens blur: tween a plain object `{ px: 16 → 0 }` and in `onUpdate` set the box's `style.filter` to
+  `blur(<px>px)` only while px is between 0.05 and 15.95, and to `""` otherwise, so the lens never idles in a filter
+  layer (before it appears or once it's sharp). These writes are outside GSAP, so clear `style.filter` in the effect's
+  cleanup after `ctx.revert()`.
+- So at the top of the page the hero is still, the zoom plays with the hero copy in place, the copy scrolls out while
+  the scanner is up, and the features copy arrives as the eye washes out.
+
+### M3 · Portrait zoom (the hard bit)
+The canvas redraws the visible part of the 4K source every frame, so the eye stays as sharp as the image allows; a
+CSS transform would scale a cached bitmap. The iris to zoom into is at (2248, 907) in the image's own pixels, radius
+36. At `zoom = 1` the iris is at the centre of the screen with radius 210 design px (phone: 150). The scale grows
+exponentially with `zoom` (an even zoom speed), and the iris travels to the centre in step with the scale, which is
+the same as zooming about one fixed point. `extra` then pushes in a further 30% about the centre.
+```ts
+const IRIS = { x: 2248, y: 907, r: 36 };       // source px
+const IRIS_ON_SCREEN = mobile ? 150 : 210;     // design px, mobile = (max-width: 1023px)
+
+// every frame (W, H = canvas CSS size, unit = probe width / 100); skip if W or H is 0, or nothing changed
+const s0 = Math.max(W / img.width, H / img.height);
+const left0 = (W - img.width * s0) / 2;
+const top0 = (H - img.height * s0) * 0.25;
+const q0 = { x: left0 + IRIS.x * s0, y: top0 + IRIS.y * s0 };   // the iris on screen at zoom 0
+const s1 = (IRIS_ON_SCREEN * unit) / IRIS.r;
+const s = s0 * Math.pow(s1 / s0, zoom);
+const w = (s - s0) / (s1 - s0);
+const qx = q0.x + (W / 2 - q0.x) * w;
+const qy = q0.y + (H / 2 - q0.y) * w;
+const scale = s * (1 + 0.3 * extra);
+ctx.setTransform(1, 0, 0, 1, 0, 0);
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = "high";
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+// only the visible part of the source, into the whole canvas
+ctx.drawImage(img, IRIS.x - qx / scale, IRIS.y - qy / scale, W / scale, H / scale, 0, 0, canvas.width, canvas.height);
+```
+Run it in a `requestAnimationFrame` loop that redraws only when `zoom`, `extra` or the size changed. Resize the
+backing store from a `ResizeObserver` on the canvas.
+
+### M4 · Scanner
+Covered by M2: it scales in from 0.9 while its strokes draw from their start points (arcs clockwise, the line from the
+centre outwards, the circles from the top and the bottom), the scan lines fade in, the ring turns 45° over its life,
+the mesh fades and grows in last, and the whole scanner swells to 1.3 as it fades with the wash. Its blend mode
+(`screen`) makes the bloom add light to the eye.
+
+### M5 · Lens
+Covered by M2: the four stacked layers come in as one lens through the wash, from 1.6× and blurred, then fan out to
+their four positions.
+
+### M6 · Active card
+Described in Layout → 5 and 6: the card turns blue and grows its arrow row, and its layer's glow dot fades in,
+both 300 ms with the hover curve. It works at any scroll position.
+
+### M7 · Cursor follow
+The disc eases toward the pointer, covering 30% of the remaining distance per frame at 60 fps (frame-rate
+independent: `k = 1 - 0.7^(dt / 16.67ms)`).
+
+### Reduced motion (`prefers-reduced-motion: reduce`)
+No zoom, no scanner, no blur, no stagger, and the lens doesn't split. The headline keeps its per-character spans
+(they just don't animate). The intro fades the canvas and everything else in together over 0.4 s, `power1.out`. The scroll timeline keeps the track's scroll (1.0 → 1.7), fades the wash in over 1.4 → 1.75 and
+the lens box over 1.5 → 1.9, with `--spread` already at 1 so the layers appear in their final places. The cursor and
+the active cards stay.
+
+## Build order
+1. Set up the project and install gsap.
+2. Add the design tokens (`tokens.css`), the global reset and the font.
+3. Build the static layout, desktop first: header, hero, features (the track at its two positions) and the canvas
+   drawing the portrait at zoom 0. Check every position against the numbers above at 1440 × 900.
+4. Add the phone layout.
+5. Add motion one behaviour at a time: M3 (zoom, driven by a temporary slider), M2 with the scanner and the lens,
+   then M1 (intro), then the active cards and the cursor.
+6. Compare with this description section by section and fix the differences.
+After each step: run the project and check it before going on.
+
+## Done when
+- [ ] At 1440 × 900: the headline's box is at 40 / 181 and about 458 wide, the eyebrow at 40 / 144, the callout
+      (card and pager) 40 from the right with its top at 144, the bottom paragraph at 40 / 716 breaking after "engineered" and
+      "zero-", the buttons at y 807, the scroll hint 40 from the right and the bottom.
+- [ ] At the end of the scroll: the features heading at 40 / 144, the lead at 1075 / 144 (four lines), the cards on
+      one baseline 50 from the bottom, and the four lens layers fanned out across the middle.
+- [ ] The intro: the portrait sharpens out of a blur; the header, eyebrow, paragraph, headline letters, buttons,
+      scroll hint and callout rise in, in that order.
+- [ ] Scrolling: the zoom ends with the iris centred and filling the scanner; the scanner draws in and its ring
+      turns; the hero copy scrolls up and the features copy arrives as the eye washes to `#FAFAFA`; one lens settles
+      in and splits into four. Scrolling back plays it all in reverse.
+- [ ] Hovering a card turns it blue, grows it 40 upward and lights the dot on its layer; tabbing to a card and
+      tapping one on a phone do the same.
+- [ ] At 1280 × 720, 1920 × 1080, 2560 × 1080, 768 × 1024 and 375 × 667 everything fits, nothing is cut off, and the
+      layers stay on screen. Resizing the window mid-scroll keeps the scanner centred on the iris.
+- [ ] Instrument Sans loads (no fallback font visible). Reduced motion skips the zoom, scanner and blur.
+- [ ] No console errors, no horizontal scroll.
+
+## Make it yours
+- **Copy:** the headline, eyebrow, callout, paragraph and buttons are in `Hero.tsx`; the heading, lead and the four
+  features in `Features.tsx`; the links in `Header.tsx`. Keep each heading to two short lines.
+- **Brand:** swap `logo.svg` for your logo (around 110 × 20). Change `--blue` for your accent, `--ink` and `--bg` for
+  text and page, `--hud` / `--hud-glow` for the scanner.
+- **Portrait:** use your own face shot (4K or larger, so the zoom stays sharp) and set `IRIS` in `PortraitCanvas.tsx`
+  to the centre and radius of the iris you want to zoom into, in the image's own pixels.
+- **Product:** replace the four lens images with your own product's layers or parts: transparent, the same height,
+  each centred in its file, so stacked they read as one object.
+- **Pacing:** the unit table in M2 (`SCENE` in `App.tsx`) and the scene height (`400svh` = three screens of
+  scrolling).

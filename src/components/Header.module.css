@@ -1,0 +1,78 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-h);
+  padding: 0 var(--page-edge);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  z-index: 10;
+  opacity: 0; /* Animated in by M1 */
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.logo {
+  width: calc(108.867 * var(--u));
+  height: calc(20.0006 * var(--u));
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: calc(32 * var(--u));
+}
+
+.navLink {
+  font-size: calc(16 * var(--u));
+  line-height: calc(19 * var(--u));
+  font-weight: 400;
+  color: var(--ink);
+  transition: opacity var(--trans-hover);
+}
+
+.navLink:hover {
+  opacity: 0.6;
+}
+
+.actionBtn {
+  height: calc(45 * var(--u));
+  padding: 0 calc(20 * var(--u));
+  border-radius: var(--radius-pill);
+  background-color: var(--blue);
+  color: var(--white);
+  font-size: calc(18 * var(--u));
+  line-height: calc(21 * var(--u));
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform var(--trans-hover);
+  text-decoration: none;
+}
+
+.actionBtn:hover {
+  transform: scale(1.03);
+}
+
+@media (max-width: 1023px) {
+  .nav {
+    display: none;
+  }
+
+  .actionBtn {
+    height: calc(40 * var(--u));
+    padding: 0 calc(16 * var(--u));
+    font-size: calc(16 * var(--u));
+    line-height: calc(19 * var(--u));
+  }
+}

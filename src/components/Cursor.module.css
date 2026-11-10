@@ -1,0 +1,25 @@
+.cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+  border-radius: 50%;
+  background-color: var(--cursor-fill);
+  box-shadow: inset 0 0 0 1px var(--cursor-edge);
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 200ms linear;
+  will-change: transform, opacity;
+}
+
+.visible {
+  opacity: 1;
+}
+
+@media (hover: none) or (pointer: coarse) {
+  .cursor {
+    display: none;
+  }
+}
